@@ -1,39 +1,60 @@
-name: Build Flutter APK
+name: Deploy Build and Release apk
 
 on:
-  push:
-    branches:
-      - dev-branch  # Trigger action on push to the 'main' branch (you can change this)
   pull_request:
     branches:
-      - dev-branch  # Trigger action on pull requests to the 'main' branch
+      - dev-branch
+
+  push:
+    branches:
+      - dev-branch
 
 jobs:
   build:
-    runs-on: ubuntu-latest  # The virtual machine where the build will run
-
+    name: Deploy Build APK
+    runs-on: ubuntu-latest
     steps:
-      # Step 1: Check out the repository
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      # Step 2: Set up Flutter
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
         with:
-          flutter-version: '3.4.1'  # Specify your desired Flutter version here
+          distribution: "zulu"
+          java-version: "17"
 
-      # Step 3: Install dependencies
-      - name: Install dependencies
-        run: flutter pub get
+      - run: git config --global --add safe.directory /github/workspace
 
-      # Step 4: Build the APK (debug or release)
-      - name: Build APK
-        run: flutter build apk --release  # Use --debug or --release based on your needs
-
-      # Step 5: Upload APK artifact
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v2  # Ensure the correct version is specified
+      - name: Set up Node.js
+        uses: actions/setup-node@v4.0.4
         with:
-          name: flutter-apk
-          path: build/app/outputs/flutter-apk/*.apk
+          node-version: "18" # Specify your Node.js version
+
+      - name: Get Flutter Version
+        id: flutter_version
+        uses: bungabear/flutter_version_read@main
+        with:
+          file: ./pubspec.yaml
+
+      - name: Flutter App Version Number
+        run: echo 'version_number:' ${{ steps.flutter_version.outputs.version_number }}
+
+      - name: Flutter App Build Number
+        run: echo 'build_number:' ${{ steps.flutter_version.outputs.build_number }}
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.24.3
+
+      - run: flutter pub get
+      - run: flutter build apk
+
+      - name: Rename APK
+        run: |
+          VERSION_NUMBER=${{ steps.flutter_version.outputs.version_number }}
+          BUILD_NUMBER=${{ steps.flutter_version.outputs.build_number }}
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/app_name-${VERSION_NUMBER}-${BUILD_NUMBER}.apk
+
+      - name: Upload the APK onto Github
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "build/app/outputs/flutter-apk/*.apk"
+          token: ${{ secrets.GH_TOKEN }}
+          tag: ${{ steps.flutter_version.outputs.version_number }}+${{ steps.flutter_version.outputs.build_number }}
