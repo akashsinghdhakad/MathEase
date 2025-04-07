@@ -3,10 +3,10 @@ name: Build Flutter APK
 on:
   push:
     branches:
-      - main  # Trigger action on push to the 'main' branch (you can change this)
+      - dev-branch  # Trigger action on push to the 'main' branch (you can change this)
   pull_request:
     branches:
-      - main  # Trigger action on pull requests to the 'main' branch
+      - dev-branch  # Trigger action on pull requests to the 'main' branch
 
 jobs:
   build:
